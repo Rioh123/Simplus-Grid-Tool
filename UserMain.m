@@ -9,7 +9,7 @@
 clear all; clc; close all; 
 
 %% User data
-UserDataName = 'UserData';      % Default 4-bus system
+% UserDataName = 'UserData';      % Default 4-bus system
 
 % Example power systems in "Examples" folder:
 %
@@ -30,6 +30,9 @@ UserDataName = 'UserData';      % Default 4-bus system
 % UserDataName = 'BESS_Plant_10Bus';            % A 10-unit battery energy storage plant
 % UserDataName = 'PV_Plant_10Bus';              % A 10-unit photovoltaic plant
 % UserDataName = 'PV_BESS_Hybrid_Plant_10Bus';  % A 10-unit photovoltaic and energy storage hybrid plant
+% UserDataName = 'InfBus_GflPN';            % Single grid-following inverter with positive- and negative-sequence control and infinite bus
+% UserDataName = 'InfBus_GfmPN';            % Single grid-forming inverter with positive- and negative-sequence control and infinite bus
+% UserDataName = 'GflPN&GfmPN_4Bus';        % A 4-bus system with grid-following and grid-forming positive- and negative-sequence inverters
 %
 % Dc power system examples:
 % UserDataName = 'GfdBuckInfiniteBus';         % Single grid-feeding buck converter and infinite bus

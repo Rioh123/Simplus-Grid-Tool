@@ -272,7 +272,6 @@ if UserDataStruct.Advance.EnablePlotPole
 else
     fprintf('Warning: The plot of pole map is disabled.\n')
 end
-
 % Plot admittance
 if UserDataStruct.Advance.EnablePlotAdmittance
     fprintf('Plot admittance spectrum...\n')
@@ -413,7 +412,7 @@ function PlotAdmittanceSpectrum(NumBus,ApparatusBus,ApparatusType,GsysSs,PortBus
     for k = 1:NumBus
         [~,k2] = SimplusGT.CellFind(ApparatusBus,k);
         % Plot the active bus admittance only
-        if (0<=ApparatusType{k2} && ApparatusType{k2}<90) || ...
+        if SimplusGT.IsAcApparatusType(ApparatusType{k2}) || ...
            (1000<=ApparatusType{k2} && ApparatusType{k2}<1090) || ...
            (2000<=ApparatusType{k2} && ApparatusType{k2}<2090)
        

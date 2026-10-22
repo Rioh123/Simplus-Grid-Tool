@@ -93,6 +93,29 @@ for i = 1:N_Apparatus
                     FullName_Apparatus{i} = [Name_Model '/' Name_Apparatus{i}];
                     add_block([Name_LibFile '/SynchronousMachineFull_SMAVRPSSGOV (dq-Frame System Object)'],FullName_Apparatus{i});
                 end
+            case 007
+                if ApparatusType{i} == 70
+                    Name_Apparatus{i} = ['VSI-PLL-PN' num2str(Bus)];
+                    FullName_Apparatus{i} = [Name_Model '/' Name_Apparatus{i}];
+                    add_block([Name_LibFile ...
+                        '/GFL-PN(dq-Frame System Object)'],FullName_Apparatus{i});
+                else
+                    error(['Error: unsupported ApparatusType ' ...
+                        num2str(ApparatusType{i}) ' in the 70-79 range.']);
+                end
+            case 008
+                if ApparatusType{i} == 80
+                    Name_Apparatus{i} = ['VSI-Droop-PN' num2str(Bus)];
+                    FullName_Apparatus{i} = [Name_Model '/' Name_Apparatus{i}];
+                    add_block([Name_LibFile ...
+                        '/GFM-PN(dq-Frame System Object)'],FullName_Apparatus{i});
+                else
+                    error(['Error: unsupported ApparatusType ' ...
+                        num2str(ApparatusType{i}) ' in the 80-89 range.']);
+                end
+            case 400
+                error(['Automatic Simulink generation is not available for ' ...
+                    'impedance-data model Type ' num2str(ApparatusType{i}) '.']);
             case 009
             	Name_Apparatus{i} = ['Inf-Bus' num2str(Bus)];
                 FullName_Apparatus{i} = [Name_Model '/' Name_Apparatus{i}];
@@ -157,6 +180,21 @@ for i = 1:N_Apparatus
             set_param(gcb,'PowerFlow',['ApparatusPowerFlow{' num2str(i) '}']);
             set_param(gcb,'x0',['x_e{' num2str(i) '}']);
             set_param(gcb,'OtherInputs',['OtherInputs{' num2str(i) '}']);
+
+            % The PN library sources use literal defaults. Bind the inner
+            % MATLAB System block explicitly to the generated mask values.
+            if ismember(ApparatusType{i},[70,80])
+                LinkWarnState = warning('off', ...
+                    'Simulink:Commands:SetParamLinkChangeWarn');
+                LinkWarnCleanup = onCleanup(@() warning(LinkWarnState));
+                set_param([FullName_Apparatus{i} '/MATLAB System1'], ...
+                    'Ts','Ts', ...
+                    'Para','ApparatusPara', ...
+                    'ApparatusType','ApparatusType', ...
+                    'PowerFlow','PowerFlow', ...
+                    'x0','x0');
+                clear LinkWarnCleanup
+            end
 
             % Set discretization method
             switch DiscreMethod
