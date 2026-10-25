@@ -9,6 +9,10 @@
 % represented in the positive frame:
 %   dx_p = wf*(u - x_n - x_p)
 %   dx_n = wf*(u - x_p - x_n) - 2*w*J*x_n
+% Here x_n is the negative-sequence filter state mapped into the positive
+% controller frame. With J = [0,-1;1,0] and dq rotation R, for
+% z_n = R(-2*theta)*z_n_minus,
+%   dz_n/dt = R(-2*theta)*dz_n_minus/dt - 2*w*J*z_n.
 
 %% Class
 
@@ -53,23 +57,21 @@ classdef GridFollowingVSIPN < SimplusGT.Class.ModelAdvance
             w = obj.PowerFlow(5);
 
             p = obj.GetPara(obj);
-            w0 = p.w0;
-
             % Align capacitor-terminal voltage with the PLL d axis.
             v_gd = V;
             v_oq = 0;
             i_od = P/V;
             i_oq = -Q/V;
-            v_gq = p.Rc*i_oq+w0*p.Lc*i_od;
+            v_gq = p.Rc*i_oq+w*p.Lc*i_od;
 
-            v_od = v_gd-p.Rc*i_od+w0*p.Lc*i_oq;
+            v_od = v_gd-p.Rc*i_od+w*p.Lc*i_oq;
             v_odq = v_od+1i*v_oq;
-            i_cdq = v_odq/(p.Rd+1/(1i*w0*p.Cf));
+            i_cdq = v_odq/(p.Rd+1/(1i*w*p.Cf));
             i_ldq = (i_od+1i*i_oq)-i_cdq;
             i_ld = real(i_ldq);
             i_lq = imag(i_ldq);
             v_cdq = v_odq-p.Rd*i_cdq;
-            e_dq_ss = v_odq-i_ldq*(p.Rf+1i*w0*p.Lf);
+            e_dq_ss = v_odq-i_ldq*(p.Rf+1i*w*p.Lf);
             e_d_ss = real(e_dq_ss);
             e_q_ss = imag(e_dq_ss);
 
@@ -113,6 +115,10 @@ classdef GridFollowingVSIPN < SimplusGT.Class.ModelAdvance
             v_od = v_cd+p.Rd*(i_od-i_ld);
             v_oq = v_cq+p.Rd*(i_oq-i_lq);
 
+            % DDSRF filter states for terminal voltage, converter-side
+            % current, and grid-side current. Both sequence channels are
+            % stored in the positive controller frame. Each signal uses two
+            % states per sequence, giving 12 DDSRF states in total.
             x_v_p = x(11:12); x_v_n = x(13:14);
             x_il_p = x(15:16); x_il_n = x(17:18);
             x_io_p = x(19:20); x_io_n = x(21:22);
@@ -123,13 +129,12 @@ classdef GridFollowingVSIPN < SimplusGT.Class.ModelAdvance
 
             if CallFlag == 1
                 % State equations: dx/dt = f(x,u)
-                w0 = p.w0;
                 [dx_v_p,dx_v_n,v_p,~] = obj.DDSRF( ...
-                    obj,[v_od;v_oq],x_v_p,x_v_n,w,p.w_power);
+                    obj,[v_od;v_oq],x_v_p,x_v_n,w,p.w_pll);
                 [dx_il_p,dx_il_n,il_p,il_n] = obj.DDSRF( ...
-                    obj,[i_ld;i_lq],x_il_p,x_il_n,w,p.w_power);
+                    obj,[i_ld;i_lq],x_il_p,x_il_n,w,p.w_pll);
                 [dx_io_p,dx_io_n,io_p,~] = obj.DDSRF( ...
-                    obj,[i_od;i_oq],x_io_p,x_io_n,w,p.w_power);
+                    obj,[i_od;i_oq],x_io_p,x_io_n,w,p.w_pll);
 
                 v_od_p_f = v_p(1); v_oq_p_f = v_p(2);
                 i_ld_p_f = il_p(1); i_lq_p_f = il_p(2);
@@ -148,7 +153,7 @@ classdef GridFollowingVSIPN < SimplusGT.Class.ModelAdvance
                 e_ang = v_oq_p_f;
                 w_raw = w_pll_i+e_ang*p.kp_pll;
                 dw_pll_i = e_ang*p.ki_pll;
-                dw = (w_raw-w)*p.w_power;
+                dw = (w_raw-w)*p.w_pll;
                 dtheta = w;
 
                 % Positive-sequence current controller.
@@ -157,7 +162,9 @@ classdef GridFollowingVSIPN < SimplusGT.Class.ModelAdvance
                 di_ld_p_i = (i_ld_p_f-i_ld_r_p)*p.kii_p;
                 di_lq_p_i = (i_lq_p_f-i_lq_r_p)*p.kii_p;
 
-                % Negative controller states live in the positive frame.
+                % Map the negative-sequence PI integrator into the positive
+                % frame. Differentiating R(-2*theta)*z_n_minus produces the
+                % additional -2*w*J*z_n term.
                 J = [0,-1;1,0];
                 e_n_pos = [i_ld_n_i;i_lq_n_i]+ ...
                     p.kpi_n*[i_ld_n_f;i_lq_n_f];
@@ -172,12 +179,12 @@ classdef GridFollowingVSIPN < SimplusGT.Class.ModelAdvance
                 e_q = (4/p.Td)*x_del_q-e_q_ref;
 
                 % LCL plant.
-                di_ld = (v_od-e_d-p.Rf*i_ld+w0*p.Lf*i_lq)/p.Lf;
-                di_lq = (v_oq-e_q-p.Rf*i_lq-w0*p.Lf*i_ld)/p.Lf;
-                dv_cd = ((i_od-i_ld)+w0*p.Cf*v_cq)/p.Cf;
-                dv_cq = ((i_oq-i_lq)-w0*p.Cf*v_cd)/p.Cf;
-                di_od = (v_gd-v_od-p.Rc*i_od+w0*p.Lc*i_oq)/p.Lc;
-                di_oq = (v_gq-v_oq-p.Rc*i_oq-w0*p.Lc*i_od)/p.Lc;
+                di_ld = (v_od-e_d-p.Rf*i_ld+w*p.Lf*i_lq)/p.Lf;
+                di_lq = (v_oq-e_q-p.Rf*i_lq-w*p.Lf*i_ld)/p.Lf;
+                dv_cd = ((i_od-i_ld)+w*p.Cf*v_cq)/p.Cf;
+                dv_cq = ((i_oq-i_lq)-w*p.Cf*v_cd)/p.Cf;
+                di_od = (v_gd-v_od-p.Rc*i_od+w*p.Lc*i_oq)/p.Lc;
+                di_oq = (v_gq-v_oq-p.Rc*i_oq-w*p.Lc*i_od)/p.Lc;
 
                 Output = [di_ld;di_lq;di_ld_p_i;di_lq_p_i; ...
                           di_n_i;dv_cd;dv_cq;di_od;di_oq; ...
@@ -208,7 +215,7 @@ classdef GridFollowingVSIPN < SimplusGT.Class.ModelAdvance
                 'Rd',       q(4), ...
                 'Lc',       q(5)/w0, ...
                 'Rc',       q(6), ...
-                'w_power',  q(7)*2*pi, ...
+                'w_pll',    q(7)*2*pi, ...
                 'kp',       q(8), ...
                 'ki',       q(9), ...
                 'kp_pll',   q(10), ...
@@ -227,7 +234,19 @@ classdef GridFollowingVSIPN < SimplusGT.Class.ModelAdvance
                 'Q0',       obj.Q0_);
         end
 
-        % Explicit DDSRF in positive-frame coordinates
+        % DDSRF in positive-frame coordinates.
+        % Let Tpn = R(2*theta) and Tnp = Tpn.'. With x_n_minus denoting the
+        % negative-frame LPF state, the conventional DDSRF equations are
+        %   dx_p/dt       = wf*(u - Tnp*x_n_minus - x_p)
+        %   dx_n_minus/dt = wf*(Tpn*u - Tpn*x_p - x_n_minus).
+        % Define z_n = Tnp*x_n_minus to store the negative-sequence state in
+        % the positive frame. Since
+        %   dTnp/dt = -2*w*J*Tnp,  J = [0,-1;1,0],
+        % the equivalent equations become
+        %   dx_p/dt = wf*(u - z_n - x_p)
+        %   dz_n/dt = wf*(u - x_p - z_n) - 2*w*J*z_n.
+        % In this function x_n denotes z_n. Both decoupled outputs are in the
+        % positive frame: y_p = u - x_n and y_n = u - x_p.
         function [dx_p,dx_n,y_p,y_n] = DDSRF(~,u,x_p,x_n,w,wf)
             J = [0,-1;1,0];
             dx_p = wf*(u-x_n-x_p);

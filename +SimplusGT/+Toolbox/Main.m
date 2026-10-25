@@ -272,6 +272,7 @@ if UserDataStruct.Advance.EnablePlotPole
 else
     fprintf('Warning: The plot of pole map is disabled.\n')
 end
+
 % Plot admittance
 if UserDataStruct.Advance.EnablePlotAdmittance
     fprintf('Plot admittance spectrum...\n')

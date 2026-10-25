@@ -9,7 +9,7 @@
 clear all; clc; close all; 
 
 %% User data
-% UserDataName = 'UserData';      % Default 4-bus system
+UserDataName = 'UserData';      % Default 4-bus system
 
 % Example power systems in "Examples" folder:
 %
