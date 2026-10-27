@@ -181,21 +181,6 @@ for i = 1:N_Apparatus
             set_param(gcb,'x0',['x_e{' num2str(i) '}']);
             set_param(gcb,'OtherInputs',['OtherInputs{' num2str(i) '}']);
 
-            % The PN library sources use literal defaults. Bind the inner
-            % MATLAB System block explicitly to the generated mask values.
-            if ismember(ApparatusType{i},[70,80])
-                LinkWarnState = warning('off', ...
-                    'Simulink:Commands:SetParamLinkChangeWarn');
-                LinkWarnCleanup = onCleanup(@() warning(LinkWarnState));
-                set_param([FullName_Apparatus{i} '/MATLAB System1'], ...
-                    'Ts','Ts', ...
-                    'Para','ApparatusPara', ...
-                    'ApparatusType','ApparatusType', ...
-                    'PowerFlow','PowerFlow', ...
-                    'x0','x0');
-                clear LinkWarnCleanup
-            end
-
             % Set discretization method
             switch DiscreMethod
                 case 1
